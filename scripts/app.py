@@ -13,18 +13,22 @@ import os
 scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(scripts_dir))
 
-# CLEANUP: Eliminar archivos sample si existen (para limpiar cache en servidor)
+# CLEANUP: Eliminar archivos sample Y CSVs grandes si existen (para limpiar cache en servidor)
 BASE_DIR = scripts_dir.parent
 DATA_DIR = BASE_DIR / "data"
-sample_files_to_remove = [
+files_to_remove = [
+    # Samples
     DATA_DIR / "mensajes_whatsapp" / "whatsapp_sample.csv",
     DATA_DIR / "mensajes_texto" / "mensajes_texto_sample.csv",
     DATA_DIR / "mensajes_texto" / "interacciones_sample.csv",
+    # CSVs grandes (deben usar Parquet)
+    DATA_DIR / "mensajes_texto" / "mensajes_texto.csv",
+    DATA_DIR / "mensajes_texto" / "interacciones.csv",
 ]
-for sample_file in sample_files_to_remove:
-    if sample_file.exists():
+for file_to_remove in files_to_remove:
+    if file_to_remove.exists():
         try:
-            os.remove(sample_file)
+            os.remove(file_to_remove)
         except:
             pass
 
