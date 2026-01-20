@@ -25,15 +25,15 @@ def _read_file(filepath: Path, **kwargs) -> pd.DataFrame:
     
     Args:
         filepath: Ruta al archivo
-        **kwargs: Argumentos adicionales para _read_file() o pd.read_parquet()
+        **kwargs: Argumentos adicionales para pd.read_csv() o pd.read_parquet()
     
     Returns:
-        DataFrame con los datos cargados
+        DataFrame con los datos cargados (o iterador si chunksize está activo en CSV)
     """
     if filepath.suffix == '.parquet':
         # Parquet no soporta estos parámetros de CSV
         parquet_kwargs = {k: v for k, v in kwargs.items() 
-                         if k not in ['encoding', 'delimiter', 'low_memory', 'on_bad_lines', 'nrows', 'usecols', 'dtype']}
+                         if k not in ['encoding', 'delimiter', 'low_memory', 'on_bad_lines', 'nrows', 'usecols', 'dtype', 'chunksize']}
         df = pd.read_parquet(filepath, engine='pyarrow', **parquet_kwargs)
         
         # Aplicar nrows manualmente si se especificó
@@ -48,8 +48,9 @@ def _read_file(filepath: Path, **kwargs) -> pd.DataFrame:
         
         return df
     else:
-        # CSV usa los argumentos originales
-        return _read_file(filepath, **kwargs)
+        # CSV usa los argumentos originales (incluyendo chunksize para iteración)
+        return pd.read_csv(filepath, **kwargs)
+
 
 
 @st.cache_data
