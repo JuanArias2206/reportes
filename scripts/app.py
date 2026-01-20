@@ -25,12 +25,23 @@ files_to_remove = [
     DATA_DIR / "mensajes_texto" / "mensajes_texto.csv",
     DATA_DIR / "mensajes_texto" / "interacciones.csv",
 ]
+removed_files = []
 for file_to_remove in files_to_remove:
     if file_to_remove.exists():
         try:
             os.remove(file_to_remove)
+            removed_files.append(file_to_remove.name)
         except:
             pass
+
+# Si se eliminaron archivos, mostrar advertencia
+if removed_files:
+    import streamlit as st
+    st.warning(f"⚠️ **REBOOT REQUERIDO**: Se eliminaron {len(removed_files)} archivo(s) obsoleto(s). "
+               f"Por favor REBOOT la app manualmente desde el dashboard de Streamlit Cloud para aplicar cambios. "
+               f"Archivos eliminados: {', '.join(removed_files[:3])}")
+    st.info("📍 **Cómo hacer reboot:** Dashboard → Encuentra 'reportes' → Click '⋮' → 'Reboot app'")
+    st.stop()
 
 from config import PAGE_CONFIG, MESSAGES, WHATSAPP_FILES
 from data_loader import (
