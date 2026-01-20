@@ -20,3 +20,8 @@ __pycache__/
 
 # === Streamlit cache/local state ===
 .streamlit/
+
+# Archivos sample
+*_sample.csv
+*sample*.csv
+*.sample.csv

@@ -31,20 +31,22 @@ def _read_file(filepath: Path, **kwargs) -> pd.DataFrame:
         DataFrame con los datos cargados (o iterador si chunksize está activo en CSV)
     """
     if filepath.suffix == '.parquet':
+        # Para Parquet, usar columns parameter nativo si hay usecols
+        usecols = kwargs.pop('usecols', None)
+        
         # Parquet no soporta estos parámetros de CSV
         parquet_kwargs = {k: v for k, v in kwargs.items() 
-                         if k not in ['encoding', 'delimiter', 'low_memory', 'on_bad_lines', 'nrows', 'usecols', 'dtype', 'chunksize']}
+                         if k not in ['encoding', 'delimiter', 'low_memory', 'on_bad_lines', 'nrows', 'dtype', 'chunksize']}
+        
+        # Agregar columns si usecols fue especificado
+        if usecols:
+            parquet_kwargs['columns'] = usecols
+        
         df = pd.read_parquet(filepath, engine='pyarrow', **parquet_kwargs)
         
         # Aplicar nrows manualmente si se especificó
         if 'nrows' in kwargs and kwargs['nrows'] is not None:
             df = df.head(kwargs['nrows'])
-        
-        # Aplicar usecols manualmente si se especificó
-        if 'usecols' in kwargs and kwargs['usecols'] is not None:
-            available_cols = [col for col in kwargs['usecols'] if col in df.columns]
-            if available_cols:
-                df = df[available_cols]
         
         return df
     else:
