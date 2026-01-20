@@ -43,28 +43,35 @@ def _resolve_interacciones_file() -> Path:
 def _resolve_whatsapp_files() -> List[Path]:
     """Resuelve TODOS los archivos WhatsApp, priorizando .parquet sobre .csv.
     
-    IMPORTANTE: Si existen archivos reales, NO incluye samples.
-    Solo incluye samples si NO hay archivos reales.
+    IMPORTANTE: Si existen archivos .parquet reales, IGNORA todos los samples.
+    Solo usa samples si NO hay ningún archivo real disponible.
     """
-    # Buscar archivos parquet y csv
+    # Buscar SOLO archivos parquet (priorizamos parquet)
     parquet_files = sorted(WHATSAPP_DIR.glob("*.parquet"))
+    
+    # Filtrar parquets que NO sean samples
+    parquet_reales = [f for f in parquet_files 
+                      if "sample" not in f.name.lower() and f.exists()]
+    
+    # Si hay parquets reales, SOLO devolver esos (ignorar todo lo demás)
+    if parquet_reales:
+        return parquet_reales
+    
+    # Fallback: buscar CSVs si no hay parquets
     csv_files = sorted(WHATSAPP_DIR.glob("*.csv"))
+    csv_reales = [f for f in csv_files 
+                  if "sample" not in f.name.lower() and f.exists()]
     
-    # Separar reales y samples
-    parquet_reales = [f for f in parquet_files if "_sample" not in f.name.lower()]
-    parquet_samples = [f for f in parquet_files if "_sample" in f.name.lower()]
-    csv_reales = [f for f in csv_files if "_sample" not in f.name.lower()]
-    csv_samples = [f for f in csv_files if "_sample" in f.name.lower()]
+    if csv_reales:
+        return csv_reales
     
-    # Prioridad: parquet reales > csv reales
-    reales = parquet_reales if parquet_reales else csv_reales
+    # Último recurso: samples (solo si no hay NADA más)
+    parquet_samples = [f for f in parquet_files 
+                       if "sample" in f.name.lower() and f.exists()]
+    csv_samples = [f for f in csv_files 
+                   if "sample" in f.name.lower() and f.exists()]
     
-    # Solo incluir samples si NO hay archivos reales
-    if reales:
-        return reales
-    else:
-        # Si no hay reales, usar samples (primero parquet, luego csv)
-        return parquet_samples + csv_samples
+    return parquet_samples + csv_samples
 
 
 SMS_FILE = _resolve_sms_file()
