@@ -12,7 +12,7 @@ import sys
 scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(scripts_dir))
 
-from config import PAGE_CONFIG, MESSAGES
+from config import PAGE_CONFIG, MESSAGES, WHATSAPP_FILES
 from data_loader import (
     load_sms_data,
     load_whatsapp_data,
@@ -277,18 +277,24 @@ def render_whatsapp_section():
     """Renderiza la sección completa de WhatsApp."""
     st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-title">💬 ANÁLISIS DE WHATSAPP</div>', unsafe_allow_html=True)
-    st.markdown("*Análisis de 1.9K+ mensajes WhatsApp con validaciones de calidad*")
     
     whatsapp_stats = get_whatsapp_statistics()
     total_wa = whatsapp_stats['total']
+    num_files = len(whatsapp_stats.get('by_file', {}))
+    
+    # Encabezado con info de fuentes
+    file_names = ", ".join([f.name for f in WHATSAPP_FILES]) if hasattr(WHATSAPP_FILES, '__iter__') else "múltiples archivos"
+    st.markdown(f"*Análisis combinado de **{num_files} archivo(s)** con **{total_wa:,}+ mensajes** WhatsApp con validaciones de calidad*")
+    st.markdown(f"<small>📂 Fuentes: {file_names}</small>", unsafe_allow_html=True)
     
     # Métricas resumen
     st.markdown('<div class="metrics-container">', unsafe_allow_html=True)
+    st.markdown(f"**🔀 Datos Combinados de {num_files} archivo(s) WhatsApp:**")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("💬 Total WhatsApp", f"{total_wa:,}")
+        st.metric("💬 Total Mensajes", f"{total_wa:,}")
     with col2:
-        st.metric("📂 Archivos", len(whatsapp_stats.get('by_file', {})))
+        st.metric("📂 Archivos Fuente", len(whatsapp_stats.get('by_file', {})))
     with col3:
         st.metric("🏷️ Estados Únicos", len(whatsapp_stats["states"]))
     with col4:
@@ -322,25 +328,39 @@ def render_whatsapp_section():
             st.dataframe(states_df, use_container_width=True, hide_index=True)
             
             # Por archivo
-            st.markdown("#### Distribución por Archivo")
+            st.markdown("#### 📂 Desglose por Archivo Fuente (TOTAL COMBINADO)")
+            st.markdown(f"*Estos datos provienen de {len(whatsapp_stats.get('by_file', {}))} archivo(s) en `data/mensajes_whatsapp/`*")
+            
+            # Tabla resumen de archivos
+            if whatsapp_stats.get("by_file"):
+                file_summary = []
+                for file_name, file_data in whatsapp_stats.get("by_file", {}).items():
+                    file_summary.append({
+                        "📄 Archivo": file_name,
+                        "Mensajes": file_data['count'],
+                        "% del Total": f"{file_data['count']/total_wa*100:.1f}%"
+                    })
+                summary_df = pd.DataFrame(file_summary)
+                st.dataframe(summary_df, use_container_width=True, hide_index=True)
+            
+            # Detalles expandibles por archivo
             for file_name, file_data in whatsapp_stats.get("by_file", {}).items():
-                with st.expander(f"📄 {file_name} ({file_data['count']:,} msgs)"):
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        file_states_df = pd.DataFrame(
-                            [(s, c, f"{c/file_data['count']*100:.1f}%")
-                             for s, c in file_data["states"].items()],
-                            columns=["Estado", "Cantidad", "Porcentaje"]
-                        )
-                        st.dataframe(file_states_df, use_container_width=True, hide_index=True)
+                with st.expander(f"📄 {file_name} — {file_data['count']:,} mensajes"):
+                    file_states_df = pd.DataFrame(
+                        [(s, c, f"{c/file_data['count']*100:.1f}%")
+                         for s, c in sorted(file_data["states"].items(), key=lambda x: x[1], reverse=True)],
+                        columns=["Estado", "Cantidad", "Porcentaje"]
+                    )
+                    st.dataframe(file_states_df, use_container_width=True, hide_index=True)
     
     with tab2:
         st.markdown("### Flujo de Estados (Diagrama Sankey)")
-        st.markdown("*Visualiza cómo transicionan los mensajes entre diferentes estados*")
+        st.markdown("*Flujo de TODOS los mensajes WhatsApp combinados — muestra cómo transicionan entre diferentes estados*")
+        st.markdown(f"<small>📊 Datos agregados: {total_wa:,} mensajes de {len(whatsapp_stats.get('by_file', {}))} archivo(s)</small>", unsafe_allow_html=True)
         try:
             source, target, value = get_whatsapp_flow_data()
             if source and target and value:
-                fig = create_sankey_diagram(source, target, value, "Flujo WhatsApp")
+                fig = create_sankey_diagram(source, target, value, "Flujo WhatsApp (TOTAL)")
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No hay suficientes datos para el Sankey")
@@ -767,6 +787,11 @@ def render_sidebar():
         
         st.markdown("---")
         st.markdown("### 📊 Estadísticas en Caché")
+        
+        # Botón para limpiar caché
+        if st.button("🔄 Recargar Datos (Limpiar Caché)", help="Haz clic para forzar recarga de todos los datos"):
+            st.cache_data.clear()
+            st.rerun()
         
         try:
             total_sms = count_total_sms_records()

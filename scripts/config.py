@@ -25,11 +25,15 @@ def _resolve_interacciones_file() -> Path:
 
 
 def _resolve_whatsapp_files() -> List[Path]:
+    """Resuelve TODOS los archivos WhatsApp, priorizando los reales sobre samples."""
     files = sorted(WHATSAPP_DIR.glob("*.csv"))
     if not files:
         return []
-    reales = [f for f in files if "_sample" not in f.name]
-    return reales if reales else files
+    # Separar en reales y samples
+    reales = [f for f in files if "_sample" not in f.name.lower()]
+    samples = [f for f in files if "_sample" in f.name.lower()]
+    # Retornar TODOS: primero reales, luego samples como fallback
+    return (reales if reales else []) + samples
 
 
 SMS_FILE = _resolve_sms_file()

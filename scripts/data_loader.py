@@ -63,28 +63,41 @@ def load_sms_data(sample: bool = True, sample_size: int = 10000) -> pd.DataFrame
 
 @st.cache_data
 def load_whatsapp_data() -> pd.DataFrame:
-    """Carga todos los datos de WhatsApp."""
+    """Carga TODOS los datos de WhatsApp de TODOS los archivos."""
     try:
         if not WHATSAPP_FILES:
             st.warning("No se encontraron archivos de WhatsApp. Coloca tus CSV en data/mensajes_whatsapp/.")
             return pd.DataFrame()
 
+        # IMPORTANTE: Pasar los nombres de archivo como string para cache key
+        # Esto evita problemas con Path objects en el cache
         all_dfs = []
+        file_names = []
+        
         for wa_file in WHATSAPP_FILES:
-            if not wa_file.exists():
+            try:
+                if not wa_file.exists():
+                    continue
+                df = pd.read_csv(
+                    wa_file,
+                    encoding=CSV_ENCODING["whatsapp"],
+                    delimiter=DELIMITERS["whatsapp"],
+                )
+                all_dfs.append(df)
+                file_names.append(wa_file.name)
+                st.write(f"✓ Cargado: {wa_file.name} ({len(df)} registros)")
+            except Exception as e:
+                st.write(f"✗ Error cargando {wa_file.name}: {e}")
                 continue
-            df = pd.read_csv(
-                wa_file,
-                encoding=CSV_ENCODING["whatsapp"],
-                delimiter=DELIMITERS["whatsapp"],
-            )
-            all_dfs.append(df)
 
         if not all_dfs:
             st.warning("No se pudieron cargar archivos de WhatsApp.")
             return pd.DataFrame()
 
-        return pd.concat(all_dfs, ignore_index=True)
+        result = pd.concat(all_dfs, ignore_index=True)
+        st.write(f"✓ TOTAL: {len(result)} registros de {len(file_names)} archivos")
+        
+        return result
     except Exception as e:
         st.warning(f"Error cargando WhatsApp: {e}")
         return pd.DataFrame()
@@ -181,14 +194,26 @@ def get_sms_flow_data() -> Tuple[List, List, List]:
         return [], [], []
 
 
-@st.cache_data
 def get_whatsapp_flow_data() -> Tuple[List, List, List]:
-    """Obtiene datos de flujo para WhatsApp."""
+    """Obtiene datos de flujo para WhatsApp de TODOS los archivos.
+    
+    NOTA: NO cacheamos esta función porque el caché de Streamlit sin argumentos
+    devuelve siempre el mismo resultado. Preferimos que llame a load_whatsapp_data()
+    que SÍ está cacheada y es más segura.
+    """
     try:
         whatsapp_df = load_whatsapp_data()
         
-        if whatsapp_df.empty or 'Status' not in whatsapp_df.columns:
+        if whatsapp_df.empty:
+            st.error(f"⚠️ DEBUG: DataFrame de WhatsApp vacío. Columnas encontradas: {whatsapp_df.columns.tolist()}")
             return [], [], []
+        
+        if 'Status' not in whatsapp_df.columns:
+            st.error(f"⚠️ DEBUG: Columna 'Status' no encontrada. Columnas disponibles: {whatsapp_df.columns.tolist()}")
+            return [], [], []
+        
+        st.info(f"📊 DEBUG: Sankey data - Total filas: {len(whatsapp_df)}")
+        st.write(f"📊 Status value_counts: {whatsapp_df['Status'].value_counts().to_dict()}")
         
         source, target, value = [], [], []
         
@@ -198,9 +223,14 @@ def get_whatsapp_flow_data() -> Tuple[List, List, List]:
                 target.append(str(state))
                 value.append(count)
         
+        total_value = sum(value)
+        st.success(f"✅ DEBUG: Sankey completo - Total enviados: {total_value}, Estados: {list(zip(target, value))}")
+        
         return source, target, value
     except Exception as e:
-        st.warning(f"Error en flujo WhatsApp: {e}")
+        st.error(f"❌ Error en flujo WhatsApp: {e}")
+        import traceback
+        st.write(traceback.format_exc())
         return [], [], []
 
 

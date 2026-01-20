@@ -99,17 +99,20 @@ def create_sankey_diagram(source: List, target: List, value: List, title: str = 
     node_values = {}
     
     # Calcular valores totales por nodo
+    # Para nodos origen: contar salidas
+    # Para nodos destino: contar entradas
     for s, t, v in zip(source, target, value):
         if s not in node_values:
             node_values[s] = 0
         if t not in node_values:
             node_values[t] = 0
-        node_values[s] += v
-        node_values[t] += v
+        node_values[s] += v  # Las salidas del origen
+        node_values[t] += v  # Las entradas al destino
     
     # Crear labels con nombre y valor
+    # NO DIVIDIR POR 2 - cada nodo muestra su valor correcto
     for node in nodes:
-        val = node_values.get(node, 0) // 2  # Dividir por 2 porque se cuenta entrada y salida
+        val = node_values.get(node, 0)
         node_labels.append(f"{node}\n({val:,})")
     
     fig = go.Figure(data=[go.Sankey(
