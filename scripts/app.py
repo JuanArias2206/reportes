@@ -7,10 +7,26 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 import sys
+import os
 
 # Agregar el directorio de scripts al path
 scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(scripts_dir))
+
+# CLEANUP: Eliminar archivos sample si existen (para limpiar cache en servidor)
+BASE_DIR = scripts_dir.parent
+DATA_DIR = BASE_DIR / "data"
+sample_files_to_remove = [
+    DATA_DIR / "mensajes_whatsapp" / "whatsapp_sample.csv",
+    DATA_DIR / "mensajes_texto" / "mensajes_texto_sample.csv",
+    DATA_DIR / "mensajes_texto" / "interacciones_sample.csv",
+]
+for sample_file in sample_files_to_remove:
+    if sample_file.exists():
+        try:
+            os.remove(sample_file)
+        except:
+            pass
 
 from config import PAGE_CONFIG, MESSAGES, WHATSAPP_FILES
 from data_loader import (
