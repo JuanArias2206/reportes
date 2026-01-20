@@ -366,9 +366,10 @@ def get_sms_clicks_stats() -> Dict:
             low_memory=False
         )
         
-        df["Total Clicks URL 1"] = df["Total Clicks URL 1"].fillna(0).astype(int)
-        df["Total Clicks URL 2"] = df["Total Clicks URL 2"].fillna(0).astype(int)
-        df["Total Clicks URL 3"] = df["Total Clicks URL 3"].fillna(0).astype(int)
+        # Convertir a float primero (maneja '1.0' strings), luego a int
+        df["Total Clicks URL 1"] = pd.to_numeric(df["Total Clicks URL 1"], errors='coerce').fillna(0).astype(int)
+        df["Total Clicks URL 2"] = pd.to_numeric(df["Total Clicks URL 2"], errors='coerce').fillna(0).astype(int)
+        df["Total Clicks URL 3"] = pd.to_numeric(df["Total Clicks URL 3"], errors='coerce').fillna(0).astype(int)
         
         sample_size = len(df)
         
