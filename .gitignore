@@ -1,11 +1,15 @@
-# === Datos grandes: ignorar CSVs reales, mantener muestras ===
-# SMS & Interacciones (mantener *_sample.csv)
+# === Datos grandes: ignorar CSVs, incluir Parquet y samples ===
+# SMS & Interacciones
 data/mensajes_texto/*.csv
 !data/mensajes_texto/*sample*.csv
+# INCLUIR archivos .parquet (son más pequeños y caben en Git)
+!data/mensajes_texto/*.parquet
 
-# WhatsApp (mantener *_sample.csv)
+# WhatsApp  
 data/mensajes_whatsapp/*.csv
 !data/mensajes_whatsapp/*sample*.csv
+# INCLUIR archivos .parquet
+!data/mensajes_whatsapp/*.parquet
 
 # === Entornos y temporales ===
 venv/

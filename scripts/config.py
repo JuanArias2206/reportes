@@ -13,26 +13,49 @@ WHATSAPP_DIR = DATA_DIR / "mensajes_whatsapp"
 
 # Archivos de datos con fallback automático a muestras pequeñas
 def _resolve_sms_file() -> Path:
-    principal = SMS_DIR / "mensajes_texto.csv"
-    muestra = SMS_DIR / "mensajes_texto_sample.csv"
-    return principal if principal.exists() else muestra
+    """Busca primero .parquet, luego .csv, finalmente sample."""
+    parquet_file = SMS_DIR / "mensajes_texto.parquet"
+    csv_file = SMS_DIR / "mensajes_texto.csv"
+    sample_file = SMS_DIR / "mensajes_texto_sample.csv"
+    
+    if parquet_file.exists():
+        return parquet_file
+    elif csv_file.exists():
+        return csv_file
+    else:
+        return sample_file
 
 
 def _resolve_interacciones_file() -> Path:
-    principal = SMS_DIR / "interacciones.csv"
-    muestra = SMS_DIR / "interacciones_sample.csv"
-    return principal if principal.exists() else muestra
+    """Busca primero .parquet, luego .csv, finalmente sample."""
+    parquet_file = SMS_DIR / "interacciones.parquet"
+    csv_file = SMS_DIR / "interacciones.csv"
+    sample_file = SMS_DIR / "interacciones_sample.csv"
+    
+    if parquet_file.exists():
+        return parquet_file
+    elif csv_file.exists():
+        return csv_file
+    else:
+        return sample_file
 
 
 def _resolve_whatsapp_files() -> List[Path]:
-    """Resuelve TODOS los archivos WhatsApp, priorizando los reales sobre samples."""
-    files = sorted(WHATSAPP_DIR.glob("*.csv"))
-    if not files:
-        return []
-    # Separar en reales y samples
-    reales = [f for f in files if "_sample" not in f.name.lower()]
-    samples = [f for f in files if "_sample" in f.name.lower()]
-    # Retornar TODOS: primero reales, luego samples como fallback
+    """Resuelve TODOS los archivos WhatsApp, priorizando .parquet sobre .csv."""
+    # Buscar archivos parquet y csv
+    parquet_files = sorted(WHATSAPP_DIR.glob("*.parquet"))
+    csv_files = sorted(WHATSAPP_DIR.glob("*.csv"))
+    
+    # Separar reales y samples
+    parquet_reales = [f for f in parquet_files if "_sample" not in f.name.lower()]
+    parquet_samples = [f for f in parquet_files if "_sample" in f.name.lower()]
+    csv_reales = [f for f in csv_files if "_sample" not in f.name.lower()]
+    csv_samples = [f for f in csv_files if "_sample" in f.name.lower()]
+    
+    # Prioridad: parquet reales > csv reales > samples (parquet > csv)
+    reales = parquet_reales if parquet_reales else csv_reales
+    samples = parquet_samples + csv_samples
+    
     return (reales if reales else []) + samples
 
 

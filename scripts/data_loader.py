@@ -1,6 +1,7 @@
 """
 Módulo para cargar y procesar datos de manera eficiente.
 Especializado en trabajar con archivos grandes sin cargarlos completamente en memoria.
+Soporta tanto CSV como Parquet (priorizando Parquet por su eficiencia).
 """
 
 import pandas as pd
@@ -17,6 +18,38 @@ from config import (
     CSV_ENCODING,
     DELIMITERS,
 )
+
+
+def _read_file(filepath: Path, **kwargs) -> pd.DataFrame:
+    """Lee un archivo CSV o Parquet automáticamente según su extensión.
+    
+    Args:
+        filepath: Ruta al archivo
+        **kwargs: Argumentos adicionales para _read_file() o pd.read_parquet()
+    
+    Returns:
+        DataFrame con los datos cargados
+    """
+    if filepath.suffix == '.parquet':
+        # Parquet no soporta estos parámetros de CSV
+        parquet_kwargs = {k: v for k, v in kwargs.items() 
+                         if k not in ['encoding', 'delimiter', 'low_memory', 'on_bad_lines', 'nrows', 'usecols', 'dtype']}
+        df = pd.read_parquet(filepath, engine='pyarrow', **parquet_kwargs)
+        
+        # Aplicar nrows manualmente si se especificó
+        if 'nrows' in kwargs and kwargs['nrows'] is not None:
+            df = df.head(kwargs['nrows'])
+        
+        # Aplicar usecols manualmente si se especificó
+        if 'usecols' in kwargs and kwargs['usecols'] is not None:
+            available_cols = [col for col in kwargs['usecols'] if col in df.columns]
+            if available_cols:
+                df = df[available_cols]
+        
+        return df
+    else:
+        # CSV usa los argumentos originales
+        return _read_file(filepath, **kwargs)
 
 
 @st.cache_data
@@ -45,7 +78,7 @@ def load_sms_data(sample: bool = True, sample_size: int = 10000) -> pd.DataFrame
         
         nrows = sample_size if sample else None
         
-        df = pd.read_csv(
+        df = _read_file(
             SMS_FILE,
             encoding=CSV_ENCODING["sms"],
             delimiter=DELIMITERS["sms"],
@@ -78,7 +111,7 @@ def load_whatsapp_data() -> pd.DataFrame:
             try:
                 if not wa_file.exists():
                     continue
-                df = pd.read_csv(
+                df = _read_file(
                     wa_file,
                     encoding=CSV_ENCODING["whatsapp"],
                     delimiter=DELIMITERS["whatsapp"],
@@ -136,7 +169,7 @@ def get_whatsapp_statistics() -> Dict:
         by_file = {}
         for wa_file in WHATSAPP_FILES:
             try:
-                df = pd.read_csv(
+                df = _read_file(
                     wa_file,
                     encoding=CSV_ENCODING["whatsapp"],
                     delimiter=DELIMITERS["whatsapp"],
@@ -167,7 +200,7 @@ def get_sms_flow_data() -> Tuple[List, List, List]:
     try:
         total_sms = count_total_sms_records()
         
-        df = pd.read_csv(
+        df = _read_file(
             SMS_FILE,
             encoding=CSV_ENCODING["sms"],
             delimiter=DELIMITERS["sms"],
@@ -250,7 +283,7 @@ def count_total_sms_records() -> int:
     
     count = 0
     chunk_size = 100000
-    for chunk in pd.read_csv(
+    for chunk in _read_file(
         SMS_FILE,
         encoding=CSV_ENCODING["sms"],
         delimiter=DELIMITERS["sms"],
@@ -267,7 +300,7 @@ def get_sms_states_summary() -> Dict:
     try:
         if not SMS_FILE.exists():
             return {}
-        df = pd.read_csv(
+        df = _read_file(
             SMS_FILE,
             encoding=CSV_ENCODING["sms"],
             delimiter=DELIMITERS["sms"],
@@ -301,7 +334,7 @@ def get_sms_clicks_stats() -> Dict:
             return {}
         total_sms = count_total_sms_records()
         
-        df = pd.read_csv(
+        df = _read_file(
             SMS_FILE,
             encoding=CSV_ENCODING["sms"],
             delimiter=DELIMITERS["sms"],
@@ -395,7 +428,7 @@ def get_interacciones_data(sample: bool = True, sample_size: int = 10000) -> pd.
             return pd.DataFrame()
         nrows = sample_size if sample else None
         
-        df = pd.read_csv(
+        df = _read_file(
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
@@ -426,7 +459,7 @@ def get_interacciones_states_summary() -> Dict:
             return {}
         total = count_total_interacciones_records()
         
-        df = pd.read_csv(
+        df = _read_file(
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
@@ -457,7 +490,7 @@ def get_interacciones_by_operator() -> Dict:
     try:
         total = count_total_interacciones_records()
         
-        df = pd.read_csv(
+        df = _read_file(
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
@@ -489,7 +522,7 @@ def get_interacciones_by_codigo_corto() -> Dict:
     try:
         total = count_total_interacciones_records()
         
-        df = pd.read_csv(
+        df = _read_file(
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
@@ -521,7 +554,7 @@ def get_interacciones_interaction_flow() -> Tuple[List, List, List]:
     try:
         total = count_total_interacciones_records()
         
-        df = pd.read_csv(
+        df = _read_file(
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
@@ -589,7 +622,7 @@ def get_whatsapp_failed_analysis() -> Dict:
         
         for wa_file in WHATSAPP_FILES:
             try:
-                df = pd.read_csv(wa_file, encoding='utf-8', delimiter=',')
+                df = _read_file(wa_file, encoding='utf-8', delimiter=',')
                 
                 # Mensajes fallidos
                 failed_df = df[df['Status'] == 'Failed'].copy() if 'Status' in df.columns else pd.DataFrame()
@@ -735,7 +768,7 @@ def get_whatsapp_failed_details() -> pd.DataFrame:
         
         for wa_file in WHATSAPP_FILES:
             try:
-                df = pd.read_csv(wa_file, encoding='utf-8', delimiter=',')
+                df = _read_file(wa_file, encoding='utf-8', delimiter=',')
                 failed_df = df[df['Status'] == 'Failed'].copy() if 'Status' in df.columns else pd.DataFrame()
                 
                 if not failed_df.empty:
