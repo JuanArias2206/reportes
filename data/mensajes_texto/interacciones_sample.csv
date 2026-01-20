@@ -1,0 +1,6 @@
+Id Envio;Telefono celular;Total de mensajes;Estado del envio;Operador;Codigo corto
+1001;573001234567;1;Entregado;Tigo;12345
+1002;573101234567;2;Leido;Movistar;12346
+1003;573151234567;1;Fallido;Claro;12347
+1004;573201234567;3;Enviado;Claro;12348
+1005;573001234568;1;Entregado;Tigo;12345

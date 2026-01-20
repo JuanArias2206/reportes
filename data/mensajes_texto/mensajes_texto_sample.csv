@@ -1,0 +1,6 @@
+Id Envio;Telefono celular;Mensaje;Fecha de Carga;Fecha y hora procesado;Estado del envio;Referencia;Usuario;Operador;Tipo Mensaje;Total Clicks URL 1;Total Clicks URL 2;Total Clicks URL 3
+1;573001234567;Mensaje de prueba 1;2026-01-01 10:00:00;2026-01-01 10:05:00;Entregado;REF001;user_a;Tigo;Promocional;2;0;0
+2;573101234567;Mensaje de prueba 2;2026-01-01 10:10:00;2026-01-01 10:15:00;Leido;REF002;user_b;Movistar;Notificacion;0;1;0
+3;573151234567;Mensaje de prueba 3;2026-01-01 10:20:00;2026-01-01 10:25:00;Fallido;REF003;user_c;Claro;Promocional;0;0;0
+4;573201234567;Mensaje de prueba 4;2026-01-01 10:30:00;2026-01-01 10:35:00;Enviado;REF004;user_d;Claro;Transaccional;0;0;1
+5;573001234568;Mensaje de prueba 5;2026-01-01 10:40:00;2026-01-01 10:45:00;Entregado;REF005;user_a;Tigo;Promocional;1;0;0

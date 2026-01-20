@@ -1,0 +1,18 @@
+# === Datos grandes: ignorar CSVs reales, mantener muestras ===
+# SMS & Interacciones (mantener *_sample.csv)
+data/mensajes_texto/*.csv
+!data/mensajes_texto/*sample*.csv
+
+# WhatsApp (mantener *_sample.csv)
+data/mensajes_whatsapp/*.csv
+!data/mensajes_whatsapp/*sample*.csv
+
+# === Entornos y temporales ===
+venv/
+.env
+*.pyc
+__pycache__/
+.DS_Store
+
+# === Streamlit cache/local state ===
+.streamlit/
