@@ -41,7 +41,11 @@ def _resolve_interacciones_file() -> Path:
 
 
 def _resolve_whatsapp_files() -> List[Path]:
-    """Resuelve TODOS los archivos WhatsApp, priorizando .parquet sobre .csv."""
+    """Resuelve TODOS los archivos WhatsApp, priorizando .parquet sobre .csv.
+    
+    IMPORTANTE: Si existen archivos reales, NO incluye samples.
+    Solo incluye samples si NO hay archivos reales.
+    """
     # Buscar archivos parquet y csv
     parquet_files = sorted(WHATSAPP_DIR.glob("*.parquet"))
     csv_files = sorted(WHATSAPP_DIR.glob("*.csv"))
@@ -52,11 +56,15 @@ def _resolve_whatsapp_files() -> List[Path]:
     csv_reales = [f for f in csv_files if "_sample" not in f.name.lower()]
     csv_samples = [f for f in csv_files if "_sample" in f.name.lower()]
     
-    # Prioridad: parquet reales > csv reales > samples (parquet > csv)
+    # Prioridad: parquet reales > csv reales
     reales = parquet_reales if parquet_reales else csv_reales
-    samples = parquet_samples + csv_samples
     
-    return (reales if reales else []) + samples
+    # Solo incluir samples si NO hay archivos reales
+    if reales:
+        return reales
+    else:
+        # Si no hay reales, usar samples (primero parquet, luego csv)
+        return parquet_samples + csv_samples
 
 
 SMS_FILE = _resolve_sms_file()
