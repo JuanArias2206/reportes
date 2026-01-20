@@ -182,10 +182,10 @@ def render_sms_section():
             col1, col2 = st.columns(2)
             with col1:
                 fig_bar = create_status_bar_chart(sms_stats["states"], "SMS por Estado")
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, use_container_width=True, key="sms_states_bar")
             with col2:
                 fig_donut = create_donut_chart(sms_stats["states"], "Proporción de Estados")
-                st.plotly_chart(fig_donut, use_container_width=True)
+                st.plotly_chart(fig_donut, use_container_width=True, key="sms_states_donut")
             
             # Tabla detallada
             st.markdown("#### Detalles de Estados")
@@ -203,7 +203,7 @@ def render_sms_section():
             source, target, value = get_sms_flow_data()
             if source and target and value:
                 fig = create_sankey_diagram(source, target, value, "Flujo SMS")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="sms_sankey")
             else:
                 st.info("No hay suficientes datos para el Sankey")
         except Exception as e:
@@ -252,7 +252,7 @@ def render_sms_section():
                     "URL 3": clicks_stats['total_clicks_url3'],
                 }
                 fig_engagement = create_horizontal_bar_chart(engagement_data, "Total Clicks por URL")
-                st.plotly_chart(fig_engagement, use_container_width=True)
+                st.plotly_chart(fig_engagement, use_container_width=True, key="sms_engagement")
         except Exception as e:
             st.error(f"Error en engagement: {e}")
     
@@ -263,7 +263,7 @@ def render_sms_section():
         if sms_stats["states"]:
             with col1:
                 fig_pie = create_pie_chart(sms_stats["states"], "Distribución Porcentual")
-                st.plotly_chart(fig_pie, use_container_width=True)
+                st.plotly_chart(fig_pie, use_container_width=True, key="sms_pie")
     
     with tab5:
         st.markdown("### Muestra de Datos SMS")
@@ -313,10 +313,10 @@ def render_whatsapp_section():
             col1, col2 = st.columns(2)
             with col1:
                 fig_bar = create_status_bar_chart(whatsapp_stats["states"], "WhatsApp por Estado")
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, use_container_width=True, key="wa_states_bar")
             with col2:
                 fig_donut = create_donut_chart(whatsapp_stats["states"], "Proporción de Estados")
-                st.plotly_chart(fig_donut, use_container_width=True)
+                st.plotly_chart(fig_donut, use_container_width=True, key="wa_states_donut")
             
             # Tabla detallada
             st.markdown("#### Detalles de Estados")
@@ -361,7 +361,7 @@ def render_whatsapp_section():
             source, target, value = get_whatsapp_flow_data()
             if source and target and value:
                 fig = create_sankey_diagram(source, target, value, "Flujo WhatsApp (TOTAL)")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="wa_sankey")
             else:
                 st.info("No hay suficientes datos para el Sankey")
         except Exception as e:
@@ -374,7 +374,7 @@ def render_whatsapp_section():
         if whatsapp_stats["states"]:
             with col1:
                 fig_pie = create_pie_chart(whatsapp_stats["states"], "Distribución Porcentual")
-                st.plotly_chart(fig_pie, use_container_width=True)
+                st.plotly_chart(fig_pie, use_container_width=True, key="wa_pie")
     
     with tab4:
         st.markdown("### 🔍 Análisis de Calidad de Datos: Mensajes Problemáticos")
@@ -491,7 +491,7 @@ def render_whatsapp_section():
                         operator_data,
                         "Números con Problemas por Operador"
                     )
-                    st.plotly_chart(fig_operator, use_container_width=True)
+                    st.plotly_chart(fig_operator, use_container_width=True, key="wa_dq_operator")
                 
                 with col2:
                     st.markdown("**Detalle por Operador:**")
@@ -512,7 +512,7 @@ def render_whatsapp_section():
                         failed_analysis['top_prefixes'],
                         "Top 10 Prefijos en Mensajes Problemáticos"
                     )
-                    st.plotly_chart(fig_prefix, use_container_width=True)
+                    st.plotly_chart(fig_prefix, use_container_width=True, key="wa_dq_prefix")
             
             with col2:
                 if failed_analysis.get('top_prefixes'):
@@ -535,7 +535,7 @@ def render_whatsapp_section():
                         failed_analysis['error_codes'],
                         "Códigos de Error Más Frecuentes"
                     )
-                    st.plotly_chart(fig_errors, use_container_width=True)
+                    st.plotly_chart(fig_errors, use_container_width=True, key="wa_dq_errors")
                 
                 with col2:
                     st.markdown("**Interpretación de Errores:**")
@@ -616,7 +616,7 @@ def render_whatsapp_section():
                     categoria_data,
                     "Distribución por Categoría"
                 )
-                st.plotly_chart(fig_categoria, use_container_width=True)
+                st.plotly_chart(fig_categoria, use_container_width=True, key="wa_dq_categoria")
             
             # ===== NÚMEROS INVÁLIDOS =====
             if failed_analysis.get('invalid_format'):
@@ -677,10 +677,10 @@ def render_interacciones_section():
             col1, col2 = st.columns(2)
             with col1:
                 fig_bar = create_status_bar_chart(inter_states, "Interacciones por Estado")
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, use_container_width=True, key="inter_states_bar")
             with col2:
                 fig_donut = create_donut_chart(inter_states, "Proporción de Estados")
-                st.plotly_chart(fig_donut, use_container_width=True)
+                st.plotly_chart(fig_donut, use_container_width=True, key="inter_states_donut")
             
             # Tabla detallada
             st.markdown("#### Detalles de Estados")
@@ -698,10 +698,10 @@ def render_interacciones_section():
             col1, col2 = st.columns(2)
             with col1:
                 fig_bar = create_horizontal_bar_chart(inter_operators, "Interacciones por Operador")
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, use_container_width=True, key="inter_operators_bar")
             with col2:
                 fig_donut = create_donut_chart(inter_operators, "Proporción por Operador")
-                st.plotly_chart(fig_donut, use_container_width=True)
+                st.plotly_chart(fig_donut, use_container_width=True, key="inter_operators_donut")
             
             # Tabla detallada
             st.markdown("#### Detalles por Operador")
@@ -719,10 +719,10 @@ def render_interacciones_section():
             col1, col2 = st.columns(2)
             with col1:
                 fig_bar = create_horizontal_bar_chart(inter_codigos, "Interacciones por Código")
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, use_container_width=True, key="inter_codigos_bar")
             with col2:
                 fig_donut = create_donut_chart(inter_codigos, "Proporción por Código Corto")
-                st.plotly_chart(fig_donut, use_container_width=True)
+                st.plotly_chart(fig_donut, use_container_width=True, key="inter_codigos_donut")
             
             # Tabla detallada
             st.markdown("#### Detalles por Código Corto")
@@ -740,7 +740,7 @@ def render_interacciones_section():
             source, target, value = get_interacciones_interaction_flow()
             if source and target and value:
                 fig = create_sankey_diagram(source, target, value, "Flujo de Interacciones")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, key="inter_sankey")
             else:
                 st.info("No hay suficientes datos para el Sankey")
         except Exception as e:
