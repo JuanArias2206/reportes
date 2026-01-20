@@ -274,6 +274,14 @@ def count_total_sms_records() -> int:
     try:
         if not SMS_FILE.exists():
             return 0
+        
+        # Para Parquet, usar metadatos (instantáneo)
+        if SMS_FILE.suffix == '.parquet':
+            import pyarrow.parquet as pq
+            parquet_file = pq.ParquetFile(SMS_FILE)
+            return parquet_file.metadata.num_rows
+        
+        # Para CSV, intentar wc -l
         import subprocess
         result = subprocess.run(['wc', '-l', str(SMS_FILE)], 
                               capture_output=True, text=True, timeout=5)
@@ -282,16 +290,23 @@ def count_total_sms_records() -> int:
     except:
         pass
     
+    # Fallback: contar iterando
     count = 0
     chunk_size = 100000
-    for chunk in _read_file(
-        SMS_FILE,
-        encoding=CSV_ENCODING["sms"],
-        delimiter=DELIMITERS["sms"],
-        chunksize=chunk_size,
-        usecols=["Id"]
-    ):
-        count += len(chunk)
+    try:
+        for chunk in _read_file(
+            SMS_FILE,
+            encoding=CSV_ENCODING["sms"],
+            delimiter=DELIMITERS["sms"],
+            chunksize=chunk_size,
+            usecols=["Id Envio"]
+        ):
+            count += len(chunk)
+    except:
+        # Si falla, cargar todo
+        df = _read_file(SMS_FILE, encoding=CSV_ENCODING["sms"], delimiter=DELIMITERS["sms"])
+        count = len(df)
+    
     return count
 
 
@@ -402,22 +417,34 @@ def get_sms_file_size() -> str:
 
 # ============= FUNCIONES PARA ANÁLISIS DE INTERACCIONES =============
 
-@st.cache_data
 def count_total_interacciones_records() -> int:
-    """Cuenta total de registros en interacciones.csv."""
+    """Cuenta total de registros en interacciones."""
     try:
         if not INTERACCIONES_FILE.exists():
             return 0
+        
+        # Para Parquet, usar metadatos (mucho más rápido)
+        if INTERACCIONES_FILE.suffix == '.parquet':
+            import pyarrow.parquet as pq
+            parquet_file = pq.ParquetFile(INTERACCIONES_FILE)
+            return parquet_file.metadata.num_rows
+        
+        # Para CSV, intentar wc -l primero
         import subprocess
-        result = subprocess.run(['wc', '-l', str(INTERACCIONES_FILE)], 
-                              capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            return int(result.stdout.split()[0]) - 1
-    except:
-        pass
-    
-    count = sum(1 for _ in open(INTERACCIONES_FILE, encoding='LATIN1')) - 1
-    return count
+        try:
+            result = subprocess.run(['wc', '-l', str(INTERACCIONES_FILE)], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                return int(result.stdout.split()[0]) - 1
+        except:
+            pass
+        
+        # Fallback: contar líneas manualmente
+        count = sum(1 for _ in open(INTERACCIONES_FILE, encoding='LATIN1')) - 1
+        return count
+    except Exception as e:
+        st.warning(f"Error contando interacciones: {e}")
+        return 0
 
 
 @st.cache_data

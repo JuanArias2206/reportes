@@ -1,5 +1,0 @@
-Nick name,Phone number,Status,Date Sent,Date Delivered,Date Read,Reply Status,Date First replied,First reply message
-juan,573001234567,Delivered,2026-01-01 10:00:00,2026-01-01 10:01:00,2026-01-01 10:02:00,None,,
-sofia,573101234567,Failed,2026-01-01 10:05:00,,,None,,
-carla,573151234567,Processing,2026-01-01 10:10:00,,,None,,
-luis,573201234567,Read,2026-01-01 10:15:00,2026-01-01 10:16:00,2026-01-01 10:17:00,None,,
