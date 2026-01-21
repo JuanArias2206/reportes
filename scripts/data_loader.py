@@ -473,30 +473,26 @@ def get_sms_file_size() -> str:
 # ============= FUNCIONES PARA ANÁLISIS DE INTERACCIONES =============
 
 def count_total_interacciones_records() -> int:
-    """Cuenta total de registros en interacciones."""
+    """Cuenta total de registros en interacciones (filtrado: Usuario != 'Cuantico_tecnologia')."""
     try:
         if not INTERACCIONES_FILE.exists():
             return 0
         
-        # Para Parquet, usar metadatos (mucho más rápido)
-        if INTERACCIONES_FILE.suffix == '.parquet':
-            import pyarrow.parquet as pq
-            parquet_file = pq.ParquetFile(INTERACCIONES_FILE)
-            return parquet_file.metadata.num_rows
+        # Para archivos con Usuario, necesitamos cargar y filtrar
+        df = _read_file(
+            INTERACCIONES_FILE,
+            encoding='LATIN1',
+            delimiter=';',
+            usecols=['Usuario'],
+            dtype={'Usuario': 'string'},
+            low_memory=False
+        )
         
-        # Para CSV, intentar wc -l primero
-        import subprocess
-        try:
-            result = subprocess.run(['wc', '-l', str(INTERACCIONES_FILE)], 
-                                  capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
-                return int(result.stdout.split()[0]) - 1
-        except:
-            pass
+        # Aplicar filtro: solo mensajes que NO son de Cuantico_tecnologia
+        if 'Usuario' in df.columns:
+            df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
-        # Fallback: contar líneas manualmente
-        count = sum(1 for _ in open(INTERACCIONES_FILE, encoding='LATIN1')) - 1
-        return count
+        return len(df)
     except Exception as e:
         st.warning(f"Error contando interacciones: {e}")
         return 0
@@ -504,7 +500,7 @@ def count_total_interacciones_records() -> int:
 
 @st.cache_data
 def get_interacciones_data(sample: bool = True, sample_size: int = 10000) -> pd.DataFrame:
-    """Carga datos de interacciones."""
+    """Carga datos de interacciones (filtrado: Usuario != 'Cuantico_tecnologia')."""
     try:
         if not INTERACCIONES_FILE.exists():
             st.warning("No se encontró interacciones.csv. Agrega tus datos en data/mensajes_texto/.")
@@ -515,7 +511,7 @@ def get_interacciones_data(sample: bool = True, sample_size: int = 10000) -> pd.
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
-            usecols=['Id Envio', 'Telefono celular', 'Total de mensajes', 'Estado del envio', 'Operador', 'Codigo corto'],
+            usecols=['Id Envio', 'Telefono celular', 'Total de mensajes', 'Estado del envio', 'Operador', 'Codigo corto', 'Usuario'],
             nrows=nrows,
             dtype={
                 'Id Envio': 'string',
@@ -524,9 +520,14 @@ def get_interacciones_data(sample: bool = True, sample_size: int = 10000) -> pd.
                 'Estado del envio': 'category',
                 'Operador': 'category',
                 'Codigo corto': 'string',
+                'Usuario': 'string',
             },
             low_memory=False
         )
+        
+        # Aplicar filtro: solo mensajes que NO son de Cuantico_tecnologia
+        if 'Usuario' in df.columns:
+            df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         return df
     except Exception as e:
@@ -536,7 +537,7 @@ def get_interacciones_data(sample: bool = True, sample_size: int = 10000) -> pd.
 
 @st.cache_data
 def get_interacciones_states_summary() -> Dict:
-    """Obtiene resumen de estados de interacciones."""
+    """Obtiene resumen de estados de interacciones (filtrado: Usuario != 'Cuantico_tecnologia')."""
     try:
         if not INTERACCIONES_FILE.exists():
             return {}
@@ -546,11 +547,15 @@ def get_interacciones_states_summary() -> Dict:
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
-            usecols=['Estado del envio'],
+            usecols=['Estado del envio', 'Usuario'],
             nrows=10000,
-            dtype={'Estado del envio': 'category'},
+            dtype={'Estado del envio': 'category', 'Usuario': 'string'},
             low_memory=False
         )
+        
+        # Aplicar filtro: solo mensajes que NO son de Cuantico_tecnologia
+        if 'Usuario' in df.columns:
+            df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         sample_size = len(df)
         sample_counts = df['Estado del envio'].value_counts()
@@ -569,7 +574,7 @@ def get_interacciones_states_summary() -> Dict:
 
 @st.cache_data
 def get_interacciones_by_operator() -> Dict:
-    """Obtiene estadísticas por operador."""
+    """Obtiene estadísticas por operador (filtrado: Usuario != 'Cuantico_tecnologia')."""
     try:
         total = count_total_interacciones_records()
         
@@ -577,11 +582,15 @@ def get_interacciones_by_operator() -> Dict:
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
-            usecols=['Operador'],
+            usecols=['Operador', 'Usuario'],
             nrows=10000,
-            dtype={'Operador': 'category'},
+            dtype={'Operador': 'category', 'Usuario': 'string'},
             low_memory=False
         )
+        
+        # Aplicar filtro: solo mensajes que NO son de Cuantico_tecnologia
+        if 'Usuario' in df.columns:
+            df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         sample_size = len(df)
         sample_counts = df['Operador'].value_counts()
@@ -601,7 +610,7 @@ def get_interacciones_by_operator() -> Dict:
 
 @st.cache_data
 def get_interacciones_by_codigo_corto() -> Dict:
-    """Obtiene estadísticas por código corto."""
+    """Obtiene estadísticas por código corto (filtrado: Usuario != 'Cuantico_tecnologia')."""
     try:
         total = count_total_interacciones_records()
         
@@ -609,11 +618,15 @@ def get_interacciones_by_codigo_corto() -> Dict:
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
-            usecols=['Codigo corto'],
+            usecols=['Codigo corto', 'Usuario'],
             nrows=10000,
-            dtype={'Codigo corto': 'string'},
+            dtype={'Codigo corto': 'string', 'Usuario': 'string'},
             low_memory=False
         )
+        
+        # Aplicar filtro: solo mensajes que NO son de Cuantico_tecnologia
+        if 'Usuario' in df.columns:
+            df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         sample_size = len(df)
         sample_counts = df['Codigo corto'].value_counts()
@@ -633,7 +646,7 @@ def get_interacciones_by_codigo_corto() -> Dict:
 
 @st.cache_data
 def get_interacciones_interaction_flow() -> Tuple[List, List, List]:
-    """Obtiene datos para diagrama de flujo de interacciones."""
+    """Obtiene datos para diagrama de flujo de interacciones (filtrado: Usuario != 'Cuantico_tecnologia')."""
     try:
         total = count_total_interacciones_records()
         
@@ -641,14 +654,19 @@ def get_interacciones_interaction_flow() -> Tuple[List, List, List]:
             INTERACCIONES_FILE,
             encoding='LATIN1',
             delimiter=';',
-            usecols=['Total de mensajes', 'Estado del envio'],
+            usecols=['Total de mensajes', 'Estado del envio', 'Usuario'],
             nrows=10000,
             dtype={
                 'Total de mensajes': 'Int16',
-                'Estado del envio': 'category'
+                'Estado del envio': 'category',
+                'Usuario': 'string'
             },
             low_memory=False
         )
+        
+        # Aplicar filtro: solo mensajes que NO son de Cuantico_tecnologia
+        if 'Usuario' in df.columns:
+            df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         sample_size = len(df)
         source, target, value = [], [], []
@@ -873,12 +891,17 @@ def get_whatsapp_failed_details() -> pd.DataFrame:
 
 @st.cache_data(ttl=3600)
 def get_interacciones_messages(limit: int = None) -> pd.DataFrame:
-    """Obtiene todos los mensajes de interacciones para análisis de sentimiento."""
+    """Obtiene todos los mensajes de interacciones para análisis de sentimiento.
+    FILTRO: Solo mensajes donde Usuario != 'Cuantico_tecnologia' (respuestas de usuarios).
+    """
     try:
         if not INTERACCIONES_FILE.exists():
             return pd.DataFrame()
         
-        df = _read_file(INTERACCIONES_FILE, usecols=['Mensaje', 'Operador', 'Codigo corto'])
+        df = _read_file(INTERACCIONES_FILE, usecols=['Mensaje', 'Operador', 'Codigo corto', 'Usuario'])
+        
+        # FILTRO: Solo respuestas de usuarios (no mensajes enviados por Cuantico_tecnologia)
+        df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         # Limpiar mensajes vacíos
         df = df[df['Mensaje'].notna() & (df['Mensaje'].str.len() > 0)]
