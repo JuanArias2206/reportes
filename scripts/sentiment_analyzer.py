@@ -91,7 +91,7 @@ def analyze_batch(messages: list, use_cache: bool = True, batch_size: int = 10) 
                 msgs_text = "\n".join([f"{i+1}. {msg[:200]}" for i, msg in enumerate(to_analyze)])
                 
                 response = client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model="gpt-5-nano",
                     messages=[
                         {
                             "role": "system",

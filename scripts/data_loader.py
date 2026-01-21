@@ -494,7 +494,28 @@ def count_total_interacciones_records() -> int:
         
         return len(df)
     except Exception as e:
-        st.warning(f"Error contando interacciones: {e}")
+        print(f"DEBUG: Error contando interacciones: {e}")
+        # Si hay error (ej: archivo corrupto), crear un archivo vacío válido
+        try:
+            import pyarrow as pa
+            import pyarrow.parquet as pq
+            
+            # Crear estructura vacía válida
+            empty_data = {
+                'Id Envio': pa.array([], type=pa.string()),
+                'Telefono celular': pa.array([], type=pa.int64()),
+                'Total de mensajes': pa.array([], type=pa.int16()),
+                'Estado del envio': pa.array([], type=pa.string()),
+                'Operador': pa.array([], type=pa.string()),
+                'Codigo corto': pa.array([], type=pa.string()),
+                'Usuario': pa.array([], type=pa.string()),
+            }
+            table = pa.table(empty_data)
+            INTERACCIONES_FILE.parent.mkdir(parents=True, exist_ok=True)
+            pq.write_table(table, INTERACCIONES_FILE)
+            print(f"✅ Archivo interacciones.parquet reparado (0 registros)")
+        except:
+            pass
         return 0
 
 
@@ -503,7 +524,6 @@ def get_interacciones_data(sample: bool = True, sample_size: int = 10000) -> pd.
     """Carga datos de interacciones (filtrado: Usuario != 'Cuantico_tecnologia')."""
     try:
         if not INTERACCIONES_FILE.exists():
-            st.warning("No se encontró interacciones.csv. Agrega tus datos en data/mensajes_texto/.")
             return pd.DataFrame()
         nrows = sample_size if sample else None
         
@@ -531,7 +551,7 @@ def get_interacciones_data(sample: bool = True, sample_size: int = 10000) -> pd.
         
         return df
     except Exception as e:
-        st.warning(f"Error cargando interacciones: {e}")
+        print(f"DEBUG: Error cargando interacciones: {e}")
         return pd.DataFrame()
 
 
@@ -558,6 +578,9 @@ def get_interacciones_states_summary() -> Dict:
             df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         sample_size = len(df)
+        if sample_size == 0:
+            return {}
+            
         sample_counts = df['Estado del envio'].value_counts()
         
         state_counts = {}
@@ -568,7 +591,7 @@ def get_interacciones_states_summary() -> Dict:
         
         return state_counts
     except Exception as e:
-        st.warning(f"Error en resumen de interacciones: {e}")
+        print(f"DEBUG: Error en resumen de interacciones: {e}")
         return {}
 
 
@@ -593,6 +616,9 @@ def get_interacciones_by_operator() -> Dict:
             df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         sample_size = len(df)
+        if sample_size == 0:
+            return {}
+            
         sample_counts = df['Operador'].value_counts()
         
         operator_counts = {}
@@ -604,7 +630,7 @@ def get_interacciones_by_operator() -> Dict:
         
         return operator_counts
     except Exception as e:
-        st.warning(f"Error en análisis por operador: {e}")
+        print(f"DEBUG: Error en análisis por operador: {e}")
         return {}
 
 
@@ -629,6 +655,9 @@ def get_interacciones_by_codigo_corto() -> Dict:
             df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         sample_size = len(df)
+        if sample_size == 0:
+            return {}
+            
         sample_counts = df['Codigo corto'].value_counts()
         
         codigo_counts = {}
@@ -640,7 +669,7 @@ def get_interacciones_by_codigo_corto() -> Dict:
         
         return codigo_counts
     except Exception as e:
-        st.warning(f"Error en análisis por código corto: {e}")
+        print(f"DEBUG: Error en análisis por código corto: {e}")
         return {}
 
 
@@ -669,6 +698,9 @@ def get_interacciones_interaction_flow() -> Tuple[List, List, List]:
             df = df[df['Usuario'] != 'Cuantico_tecnologia']
         
         sample_size = len(df)
+        if sample_size == 0:
+            return [], [], []
+            
         source, target, value = [], [], []
         
         for num_messages in df['Total de mensajes'].dropna().unique()[:5]:
@@ -684,7 +716,7 @@ def get_interacciones_interaction_flow() -> Tuple[List, List, List]:
         
         return source, target, value
     except Exception as e:
-        st.warning(f"Error en flujo de interacciones: {e}")
+        print(f"DEBUG: Error en flujo de interacciones: {e}")
         return [], [], []
 
 
