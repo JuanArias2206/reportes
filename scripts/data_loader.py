@@ -870,3 +870,81 @@ def get_whatsapp_failed_details() -> pd.DataFrame:
     except Exception as e:
         return pd.DataFrame()
 
+
+@st.cache_data(ttl=3600)
+def get_interacciones_messages(limit: int = None) -> pd.DataFrame:
+    """Obtiene todos los mensajes de interacciones para análisis de sentimiento."""
+    try:
+        if not INTERACCIONES_FILE.exists():
+            return pd.DataFrame()
+        
+        df = _read_file(INTERACCIONES_FILE, usecols=['Mensaje', 'Operador', 'Codigo corto'])
+        
+        # Limpiar mensajes vacíos
+        df = df[df['Mensaje'].notna() & (df['Mensaje'].str.len() > 0)]
+        
+        if limit:
+            df = df.head(limit)
+        
+        return df
+    except Exception as e:
+        return pd.DataFrame()
+
+
+def get_unique_messages(limit: int = None) -> list:
+    """Obtiene mensajes únicos para análisis (evita duplicados)."""
+    try:
+        df = get_interacciones_messages(limit)
+        if df.empty:
+            return []
+        
+        # Obtener mensajes únicos
+        unique_msgs = df['Mensaje'].unique().tolist()
+        
+        # Limpiar y filtrar
+        unique_msgs = [str(m).strip() for m in unique_msgs if m and len(str(m).strip()) > 2]
+        
+        return unique_msgs
+    except:
+        return []
+
+
+def get_sentiment_stats_by_operator() -> Dict[str, Dict]:
+    """Obtiene estadísticas de sentimiento por operador."""
+    try:
+        df = get_interacciones_messages()
+        if df.empty or 'Operador' not in df.columns:
+            return {}
+        
+        result = {}
+        for operador in df['Operador'].unique():
+            op_df = df[df['Operador'] == operador]
+            result[operador] = {
+                'total_mensajes': len(op_df),
+                'mensajes_unicos': op_df['Mensaje'].nunique()
+            }
+        
+        return result
+    except:
+        return {}
+
+
+def get_sentiment_stats_by_codigo() -> Dict[str, Dict]:
+    """Obtiene estadísticas de sentimiento por código corto."""
+    try:
+        df = get_interacciones_messages()
+        if df.empty or 'Codigo corto' not in df.columns:
+            return {}
+        
+        result = {}
+        for codigo in df['Codigo corto'].unique():
+            cod_df = df[df['Codigo corto'] == codigo]
+            result[codigo] = {
+                'total_mensajes': len(cod_df),
+                'mensajes_unicos': cod_df['Mensaje'].nunique()
+            }
+        
+        return result
+    except:
+        return {}
+

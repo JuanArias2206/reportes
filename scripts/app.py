@@ -62,6 +62,10 @@ from data_loader import (
     get_interacciones_interaction_flow,
     get_whatsapp_failed_analysis,
     get_whatsapp_failed_details,
+    get_interacciones_messages,
+    get_unique_messages,
+    get_sentiment_stats_by_operator,
+    get_sentiment_stats_by_codigo,
 )
 from visualizations import (
     create_sankey_diagram,
@@ -710,7 +714,7 @@ def render_interacciones_section():
         st.metric("🔢 Códigos Cortos", len(inter_codigos))
     st.markdown('</div>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Estados", "📡 Operadores", "🔢 Códigos", "🔄 Flujo", "📄 Datos"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Estados", "📡 Operadores", "🔢 Códigos", "🔄 Flujo", "📄 Datos", "💭 Sentimientos"])
     
     with tab1:
         st.markdown("### Distribución de Estados")
@@ -794,6 +798,115 @@ def render_interacciones_section():
         if not inter_df.empty:
             st.write(f"**Mostrando 100 primeros registros de {total_inter:,} totales**")
             st.dataframe(inter_df, use_container_width=True)
+    
+    with tab6:
+        st.markdown("### 💭 Análisis de Sentimientos con IA")
+        st.markdown("*Clasificación automática de mensajes: Positivos, Negativos, Neutrales*")
+        st.info("⚠️ Este análisis usa OpenAI API. Procesando un subconjunto de mensajes únicos.")
+        
+        # Botón para iniciar análisis
+        if st.button("🚀 Iniciar Análisis de Sentimientos", key="sentiment_analysis_btn"):
+            try:
+                from sentiment_analyzer import analyze_sentiment, get_sentiment_summary
+                
+                st.write("⏳ Obteniendo mensajes únicos de interacciones...")
+                unique_msgs = get_unique_messages(limit=500)
+                
+                if not unique_msgs:
+                    st.warning("No hay mensajes disponibles para analizar")
+                else:
+                    st.write(f"📊 Analizando {len(unique_msgs)} mensajes únicos...")
+                    
+                    progress_bar = st.progress(0)
+                    
+                    sentiments = []
+                    for i, msg in enumerate(unique_msgs):
+                        sentiment = analyze_sentiment(msg, use_cache=True)
+                        sentiments.append(sentiment)
+                        progress = (i + 1) / len(unique_msgs)
+                        progress_bar.progress(progress)
+                    
+                    st.success(f"✅ Análisis completado para {len(sentiments)} mensajes")
+                    
+                    summary = get_sentiment_summary(sentiments)
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("💚 Positivos", f"{summary['positivos']:,}", 
+                                 f"{summary['porcentajes']['positivos']:.1f}%")
+                    with col2:
+                        st.metric("❤️ Negativos", f"{summary['negativos']:,}", 
+                                 f"{summary['porcentajes']['negativos']:.1f}%")
+                    with col3:
+                        st.metric("💛 Neutrales", f"{summary['neutrales']:,}", 
+                                 f"{summary['porcentajes']['neutrales']:.1f}%")
+                    with col4:
+                        st.metric("🎯 Confianza Promedio", f"{summary['confianza_promedio']:.1%}")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        sentiments_dict = {
+                            'Positivos': summary['positivos'],
+                            'Negativos': summary['negativos'],
+                            'Neutrales': summary['neutrales']
+                        }
+                        fig_sentiment = create_pie_chart(sentiments_dict, "Distribución de Sentimientos")
+                        st.plotly_chart(fig_sentiment, use_container_width=True)
+                    
+                    with col2:
+                        fig_sentiment_bar = create_status_bar_chart(sentiments_dict, "Sentimientos por Categoría")
+                        st.plotly_chart(fig_sentiment_bar, use_container_width=True)
+                    
+                    st.markdown("#### 📋 Detalle de Sentimientos")
+                    sentiments_df = pd.DataFrame(sentiments)
+                    sentiments_df = sentiments_df.rename(columns={
+                        'mensaje': 'Mensaje',
+                        'sentimiento': 'Sentimiento',
+                        'confianza': 'Confianza',
+                        'razon': 'Razón'
+                    })
+                    
+                    def color_sentimiento(row):
+                        if row['Sentimiento'] == 'positivo':
+                            return ['background-color: #90EE90'] * len(row)
+                        elif row['Sentimiento'] == 'negativo':
+                            return ['background-color: #FFB6C6'] * len(row)
+                        else:
+                            return ['background-color: #FFFACD'] * len(row)
+                    
+                    st.dataframe(sentiments_df.style.apply(color_sentimiento, axis=1), 
+                               use_container_width=True, hide_index=True)
+                    
+            except ImportError as e:
+                st.error(f"❌ Error: El módulo sentiment_analyzer no está disponible")
+            except Exception as e:
+                st.error(f"❌ Error durante análisis: {str(e)}")
+                st.warning("Verifica que tu API key de OpenAI esté configurada en secretos")
+        else:
+            st.info("Haz clic en el botón 🚀 para iniciar el análisis automático de sentimientos")
+            
+            st.markdown("#### 📊 Estadísticas de Mensajes (sin análisis IA aún)")
+            op_stats = get_sentiment_stats_by_operator()
+            cod_stats = get_sentiment_stats_by_codigo()
+            
+            if op_stats:
+                st.markdown("**Por Operador:**")
+                op_df = pd.DataFrame([
+                    {'Operador': op, 'Total Mensajes': stats['total_mensajes'], 
+                     'Únicos': stats['mensajes_unicos']}
+                    for op, stats in op_stats.items()
+                ]).sort_values('Total Mensajes', ascending=False)
+                st.dataframe(op_df, use_container_width=True, hide_index=True)
+            
+            if cod_stats:
+                st.markdown("**Por Código Corto:**")
+                cod_df = pd.DataFrame([
+                    {'Código': cod, 'Total Mensajes': stats['total_mensajes'], 
+                     'Únicos': stats['mensajes_unicos']}
+                    for cod, stats in cod_stats.items()
+                ]).sort_values('Total Mensajes', ascending=False)
+                st.dataframe(cod_df, use_container_width=True, hide_index=True)
 
 
 def render_sidebar():
