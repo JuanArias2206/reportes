@@ -233,9 +233,16 @@ def get_sms_flow_data() -> Tuple[List, List, List]:
 def get_whatsapp_flow_data() -> Tuple[List, List, List]:
     """Obtiene datos de flujo enriquecido para WhatsApp de TODOS los archivos.
     
-    Flujo de 2 niveles:
-    1. Total Enviados → Status (Delivered, Read, Failed, Processing)
-    2. Status → Reply (Sí/No)
+    Flujo de 3 niveles:
+    1. Total Enviados → Status (Entregados / Fallidos / Procesando)
+       - Entregados se subdividen en: No Leído + Leído
+    2. No Leído/Leído/Fallidos/Procesando → Reply Status (Respondido/No Respondido)
+    
+    Lógica:
+    - Status='Delivered' + Date Read='-' → No Leído
+    - Status='Read' + Date Read != '-' → Leído
+    - Status='Failed' → Fallido
+    - Status='Processing' → Procesando
     """
     try:
         whatsapp_df = load_whatsapp_data()
@@ -244,26 +251,71 @@ def get_whatsapp_flow_data() -> Tuple[List, List, List]:
             return [], [], []
         
         source, target, value = [], [], []
+        total = len(whatsapp_df)
         
-        # NIVEL 1: Total Enviados → Status
-        status_counts = whatsapp_df['Status'].value_counts().to_dict()
-        for status, count in sorted(status_counts.items(), key=lambda x: x[1], reverse=True):
-            if count > 0:
-                source.append('📨 Total Enviados')
-                target.append(f"📊 {status}")
-                value.append(count)
+        # Crear nuevas categorías basadas en Status Y Date Read
+        # No Leído: Status='Delivered' (implica que Date Read = '-')
+        no_leido = whatsapp_df[whatsapp_df['Status'] == 'Delivered']
+        # Leído: Status='Read' (implica que fue entregado y leído)
+        leido = whatsapp_df[whatsapp_df['Status'] == 'Read']
+        # Fallidos y Procesando
+        fallidos = whatsapp_df[whatsapp_df['Status'] == 'Failed']
+        procesando = whatsapp_df[whatsapp_df['Status'] == 'Processing']
         
-        # NIVEL 2: Status → Reply Status
-        if 'Reply Status' in whatsapp_df.columns:
-            for status in whatsapp_df['Status'].unique():
-                status_df = whatsapp_df[whatsapp_df['Status'] == status]
-                reply_counts = status_df['Reply Status'].value_counts().to_dict()
-                for reply, count in sorted(reply_counts.items(), key=lambda x: x[1], reverse=True):
-                    if count > 0:
-                        reply_label = "✅ Sí" if str(reply).lower() == "yes" else "❌ No"
-                        source.append(f"📊 {status}")
-                        target.append(f"💬 {reply_label}")
-                        value.append(count)
+        # NIVEL 1: Total Enviados → Categorías de Entrega
+        source.append('📨 Total Enviados')
+        target.append('📦 Entregados')
+        value.append(len(no_leido) + len(leido))
+        
+        source.append('📨 Total Enviados')
+        target.append('❌ Fallidos')
+        value.append(len(fallidos))
+        
+        source.append('📨 Total Enviados')
+        target.append('⏳ Procesando')
+        value.append(len(procesando))
+        
+        # NIVEL 2: Entregados → No Leído / Leído
+        source.append('📦 Entregados')
+        target.append('📖 No Leído')
+        value.append(len(no_leido))
+        
+        source.append('📦 Entregados')
+        target.append('✅ Leído')
+        value.append(len(leido))
+        
+        # NIVEL 3: No Leído → Respuestas
+        no_leido_si = len(no_leido[no_leido['Reply Status'].str.lower() == 'yes'])
+        no_leido_no = len(no_leido[no_leido['Reply Status'].str.lower() == 'no'])
+        
+        source.append('📖 No Leído')
+        target.append('💬 Respondido')
+        value.append(no_leido_si)
+        
+        source.append('📖 No Leído')
+        target.append('🔇 Sin respuesta')
+        value.append(no_leido_no)
+        
+        # NIVEL 3: Leído → Respuestas
+        leido_si = len(leido[leido['Reply Status'].str.lower() == 'yes'])
+        leido_no = len(leido[leido['Reply Status'].str.lower() == 'no'])
+        
+        source.append('✅ Leído')
+        target.append('💬 Respondido')
+        value.append(leido_si)
+        
+        source.append('✅ Leído')
+        target.append('🔇 Sin respuesta')
+        value.append(leido_no)
+        
+        # NIVEL 3: Fallidos/Procesando → Solo Sin respuesta
+        source.append('❌ Fallidos')
+        target.append('🔇 Sin respuesta')
+        value.append(len(fallidos))
+        
+        source.append('⏳ Procesando')
+        target.append('🔇 Sin respuesta')
+        value.append(len(procesando))
         
         return source, target, value
     except Exception as e:
