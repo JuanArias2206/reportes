@@ -817,7 +817,7 @@ def render_interacciones_section():
                 if not unique_msgs:
                     st.warning("No hay mensajes disponibles para analizar")
                 else:
-                    st.write(f"📊 Analizando {len(unique_msgs)} mensajes en lotes de 10 (usando gpt-5-nano)...")
+                    st.write(f"📊 Analizando {len(unique_msgs)} mensajes en lotes de 10 (usando gpt-4o-mini)...")
                     total_batches = (len(unique_msgs) + 9) // 10
                     st.info(f"Total de lotes: {total_batches}")
                     
