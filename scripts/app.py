@@ -807,24 +807,28 @@ def render_interacciones_section():
         # Botón para iniciar análisis
         if st.button("🚀 Iniciar Análisis de Sentimientos", key="sentiment_analysis_btn"):
             try:
-                from sentiment_analyzer import analyze_sentiment, get_sentiment_summary
+                st.write("⏳ Importando módulo de análisis...")
+                from sentiment_analyzer import analyze_batch, get_sentiment_summary
                 
+                st.write("✅ Módulo importado correctamente")
                 st.write("⏳ Obteniendo mensajes únicos de interacciones...")
                 unique_msgs = get_unique_messages(limit=500)
                 
                 if not unique_msgs:
                     st.warning("No hay mensajes disponibles para analizar")
                 else:
-                    st.write(f"📊 Analizando {len(unique_msgs)} mensajes únicos...")
+                    st.write(f"📊 Analizando {len(unique_msgs)} mensajes en lotes de 10 (usando gpt-5-nano)...")
+                    total_batches = (len(unique_msgs) + 9) // 10
+                    st.info(f"Total de lotes: {total_batches}")
                     
                     progress_bar = st.progress(0)
+                    status_text = st.empty()
                     
-                    sentiments = []
-                    for i, msg in enumerate(unique_msgs):
-                        sentiment = analyze_sentiment(msg, use_cache=True)
-                        sentiments.append(sentiment)
-                        progress = (i + 1) / len(unique_msgs)
-                        progress_bar.progress(progress)
+                    # Procesar en lotes de 10 con gpt-5-nano
+                    sentiments = analyze_batch(unique_msgs, use_cache=True, batch_size=10)
+                    
+                    progress_bar.progress(1.0)
+                    status_text.text(f"✅ Procesados {len(sentiments)} mensajes")
                     
                     st.success(f"✅ Análisis completado para {len(sentiments)} mensajes")
                     
@@ -879,10 +883,16 @@ def render_interacciones_section():
                                use_container_width=True, hide_index=True)
                     
             except ImportError as e:
-                st.error(f"❌ Error: El módulo sentiment_analyzer no está disponible")
+                st.error(f"❌ Error importando módulo: {str(e)}")
+                with st.expander("📋 Detalles del error"):
+                    import traceback
+                    st.code(traceback.format_exc(), language="python")
             except Exception as e:
                 st.error(f"❌ Error durante análisis: {str(e)}")
-                st.warning("Verifica que tu API key de OpenAI esté configurada en secretos")
+                st.warning("Verifica que tu API key de OpenAI esté configurada correctamente")
+                with st.expander("📋 Detalles del error"):
+                    import traceback
+                    st.code(traceback.format_exc(), language="python")
         else:
             st.info("Haz clic en el botón 🚀 para iniciar el análisis automático de sentimientos")
             
