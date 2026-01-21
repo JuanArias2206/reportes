@@ -10,14 +10,8 @@ from pathlib import Path
 import hashlib
 import os
 
-# API KEY desde variables de entorno (usa os.getenv para obtener)
-# En producción: export OPENAI_API_KEY="sk-..."
-# En Streamlit Cloud: Agregar en secretos del proyecto
+# API KEY desde variable de entorno o .env
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-
-if not OPENAI_API_KEY:
-    import warnings
-    warnings.warn("⚠️ OPENAI_API_KEY no configurada. Algunos análisis fallarán.")
 
 CACHE_FILE = Path(__file__).parent.parent / "data" / ".sentiment_cache.json"
 
@@ -50,21 +44,134 @@ def get_message_hash(message: str) -> str:
     return hashlib.md5(message.encode()).hexdigest()
 
 
-def analyze_sentiment(message: str, use_cache=True) -> dict:
+def analyze_batch(messages: list, use_cache: bool = True, batch_size: int = 10) -> list:
     """
-    Analiza el sentimiento de un mensaje usando OpenAI.
+    Analiza un lote de mensajes en una sola llamada a OpenAI usando gpt-5-nano.
     
     Args:
-        message: Texto del mensaje a analizar
-        use_cache: Usar cache si está disponible
+        messages: Lista de mensajes a analizar
+        use_cache: Si usar cache
+        batch_size: Cantidad de mensajes por llamada (default 10)
     
     Returns:
-        {
-            'mensaje': str,
-            'sentimiento': 'positivo' | 'negativo' | 'neutral',
-            'confianza': float (0-1),
-            'razon': str
-        }
+        list: Lista de dicts con análisis de sentimiento
+    """
+    if not messages:
+        return []
+    
+    if not client or not OPENAI_API_KEY:
+        return [{
+            'mensaje': msg[:100],
+            'sentimiento': 'neutral',
+            'confianza': 0.0,
+            'razon': 'API Key no configurada'
+        } for msg in messages]
+    
+    cache = load_cache()
+    all_results = []
+    
+    # Procesar en lotes
+    for batch_idx in range(0, len(messages), batch_size):
+        batch = messages[batch_idx:batch_idx+batch_size]
+        cached_results = {}
+        to_analyze = []
+        
+        # Verificar qué mensajes están en cache
+        for msg in batch:
+            msg_hash = get_message_hash(msg)
+            if use_cache and msg_hash in cache:
+                cached_results[msg] = cache[msg_hash]
+            else:
+                to_analyze.append(msg)
+        
+        # Si hay mensajes para analizar
+        if to_analyze:
+            try:
+                # Crear prompt para análisis en lote
+                msgs_text = "\n".join([f"{i+1}. {msg[:200]}" for i, msg in enumerate(to_analyze)])
+                
+                response = client.chat.completions.create(
+                    model="gpt-5-nano",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": """Eres un analizador de sentimientos en español.
+                            Analiza cada mensaje y clasifícalo como positivo, negativo o neutral.
+                            RESPONDE SOLO CON JSON VÁLIDO en este formato exacto:
+                            {
+                                "resultados": [
+                                    {"indice": 0, "sentimiento": "positivo", "confianza": 0.95, "razon": "..."},
+                                    {"indice": 1, "sentimiento": "neutral", "confianza": 0.8, "razon": "..."}
+                                ]
+                            }"""
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Analiza estos mensajes:\n{msgs_text}"
+                        }
+                    ],
+                    temperature=0.3,
+                    max_tokens=500
+                )
+                
+                result_text = response.choices[0].message.content.strip()
+                print(f"📊 DEBUG Lote {batch_idx//batch_size + 1}: {len(to_analyze)} mensajes")
+                print(f"📝 Respuesta OpenAI (primeros 300 chars): {result_text[:300]}...")
+                
+                batch_results = json.loads(result_text)
+                
+                # Procesar resultados del lote
+                for item in batch_results.get('resultados', []):
+                    idx = item.get('indice', 0)
+                    if idx < len(to_analyze):
+                        msg = to_analyze[idx]
+                        output = {
+                            'mensaje': msg[:100],
+                            'sentimiento': item.get('sentimiento', 'neutral').lower(),
+                            'confianza': float(item.get('confianza', 0.0)),
+                            'razon': item.get('razon', '')
+                        }
+                        msg_hash = get_message_hash(msg)
+                        cache[msg_hash] = output
+                        all_results.append(output)
+                        print(f"✅ {msg[:50]}... → {output['sentimiento']}")
+            
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON Error: {e}")
+                print(f"📝 Texto recibido: {result_text[:500]}")
+                for msg in to_analyze:
+                    all_results.append({
+                        'mensaje': msg[:100],
+                        'sentimiento': 'neutral',
+                        'confianza': 0.0,
+                        'razon': 'Error parsing respuesta JSON'
+                    })
+            except Exception as e:
+                print(f"❌ Error en lote: {e}")
+                for msg in to_analyze:
+                    all_results.append({
+                        'mensaje': msg[:100],
+                        'sentimiento': 'neutral',
+                        'confianza': 0.0,
+                        'razon': f'Error: {str(e)[:50]}'
+                    })
+        
+        # Agregar resultados del cache
+        all_results.extend([cached_results[msg] for msg in batch if msg in cached_results])
+    
+    # Guardar cache actualizado
+    if all_results:
+        save_cache(cache)
+    
+    return all_results
+
+
+def analyze_sentiment(message: str, use_cache: bool = True) -> dict:
+    """
+    Analiza el sentimiento de un mensaje individual.
+    
+    Returns:
+        dict: {'mensaje': str, 'sentimiento': str, 'confianza': float, 'razon': str}
     """
     if not message or len(str(message).strip()) == 0:
         return {
@@ -74,98 +181,13 @@ def analyze_sentiment(message: str, use_cache=True) -> dict:
             'razon': 'Mensaje vacío'
         }
     
-    msg_hash = get_message_hash(message)
-    cache = load_cache()
-    
-    # Verificar si ya está en cache
-    if use_cache and msg_hash in cache:
-        return cache[msg_hash]
-    
-    # Si no hay cliente configurado
-    if not client or not OPENAI_API_KEY:
-        return {
-            'mensaje': message[:100],
-            'sentimiento': 'neutral',
-            'confianza': 0.0,
-            'razon': 'API Key no configurada'
-        }
-    
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": """Eres un analizador de sentimientos en español.
-                    Analiza cada mensaje y clasifícalo como:
-                    - positivo: si expresa apoyo, satisfacción, acuerdo, entusiasmo
-                    - negativo: si expresa rechazo, insatisfacción, crítica, desacuerdo
-                    - neutral: si es informativo, sin carga emocional clara
-                    
-                    Responde SOLO en formato JSON:
-                    {
-                        "sentimiento": "positivo|negativo|neutral",
-                        "confianza": 0.0-1.0,
-                        "razon": "explicación breve"
-                    }"""
-                },
-                {
-                    "role": "user",
-                    "content": f"Analiza este mensaje: '{message}'"
-                }
-            ],
-            temperature=0.3,
-            max_tokens=100
-        )
-        
-        # Parsear respuesta
-        response_text = response.choices[0].message.content.strip()
-        data = json.loads(response_text)
-        
-        result = {
-            'mensaje': message[:100],  # Truncar para almacenamiento
-            'sentimiento': data['sentimiento'],
-            'confianza': data['confianza'],
-            'razon': data['razon']
-        }
-        
-        # Guardar en cache
-        cache[msg_hash] = result
-        save_cache(cache)
-        
-        return result
-        
-    except Exception as e:
-        return {
-            'mensaje': message[:100],
-            'sentimiento': 'neutral',
-            'confianza': 0.0,
-            'razon': f'Error: {str(e)[:50]}'
-        }
-
-
-def analyze_multiple_messages(messages: list, batch_size=10, use_cache=True) -> list:
-    """
-    Analiza múltiples mensajes en lotes.
-    
-    Args:
-        messages: Lista de mensajes a analizar
-        batch_size: Número de mensajes por lote
-        use_cache: Usar cache
-    
-    Returns:
-        Lista de análisis de sentimientos
-    """
-    results = []
-    
-    for i, message in enumerate(messages):
-        result = analyze_sentiment(message, use_cache=use_cache)
-        results.append(result)
-        
-        if (i + 1) % batch_size == 0:
-            print(f"✅ Procesados {i + 1}/{len(messages)} mensajes")
-    
-    return results
+    result = analyze_batch([message], use_cache=use_cache, batch_size=1)
+    return result[0] if result else {
+        'mensaje': message[:100],
+        'sentimiento': 'neutral',
+        'confianza': 0.0,
+        'razon': 'Error desconocido'
+    }
 
 
 def get_sentiment_summary(sentiments: list) -> dict:
