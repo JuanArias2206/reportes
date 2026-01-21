@@ -385,18 +385,29 @@ def render_whatsapp_section():
                     st.dataframe(file_states_df, use_container_width=True, hide_index=True)
     
     with tab2:
-        st.markdown("### Flujo de Estados (Diagrama Sankey)")
-        st.markdown("*Flujo de TODOS los mensajes WhatsApp combinados — muestra cómo transicionan entre diferentes estados*")
+        st.markdown("### 🔀 Flujo de Estados (Diagrama Sankey)")
+        st.markdown("*Visualización en tiempo real del flujo de mensajes desde su envío hasta respuesta*")
+        st.markdown("**Mostrado:** Total Enviados → Status (Delivered/Read/Failed/Processing) → Respuesta (Sí/No)")
         st.markdown(f"<small>📊 Datos agregados: {total_wa:,} mensajes de {len(whatsapp_stats.get('by_file', {}))} archivo(s)</small>", unsafe_allow_html=True)
         try:
             source, target, value = get_whatsapp_flow_data()
-            if source and target and value:
-                fig = create_sankey_diagram(source, target, value, "Flujo WhatsApp (TOTAL)")
-                st.plotly_chart(fig, use_container_width=True, key="wa_sankey")
+            if source and target and value and len(source) > 0:
+                fig = create_sankey_diagram(source, target, value, "Flujo WhatsApp Completo")
+                st.plotly_chart(fig, use_container_width=True, key="wa_sankey", height=700)
+                
+                # Tabla de flujos
+                st.markdown("#### 📋 Detalle de Flujos")
+                flow_df = pd.DataFrame({
+                    'Desde': source,
+                    'Hacia': target,
+                    'Cantidad': value
+                })
+                flow_summary = flow_df.groupby(['Desde', 'Hacia'])['Cantidad'].sum().reset_index()
+                st.dataframe(flow_summary, use_container_width=True, hide_index=True)
             else:
                 st.info("No hay suficientes datos para el Sankey")
         except Exception as e:
-            st.error(f"Error en Sankey: {e}")
+            st.error(f"Error en Sankey: {str(e)}")
     
     with tab3:
         st.markdown("### Visualizaciones Adicionales")

@@ -231,42 +231,42 @@ def get_sms_flow_data() -> Tuple[List, List, List]:
 
 
 def get_whatsapp_flow_data() -> Tuple[List, List, List]:
-    """Obtiene datos de flujo para WhatsApp de TODOS los archivos.
+    """Obtiene datos de flujo enriquecido para WhatsApp de TODOS los archivos.
     
-    NOTA: NO cacheamos esta función porque el caché de Streamlit sin argumentos
-    devuelve siempre el mismo resultado. Preferimos que llame a load_whatsapp_data()
-    que SÍ está cacheada y es más segura.
+    Flujo de 2 niveles:
+    1. Total Enviados → Status (Delivered, Read, Failed, Processing)
+    2. Status → Reply (Sí/No)
     """
     try:
         whatsapp_df = load_whatsapp_data()
         
-        if whatsapp_df.empty:
-            st.error(f"⚠️ DEBUG: DataFrame de WhatsApp vacío. Columnas encontradas: {whatsapp_df.columns.tolist()}")
+        if whatsapp_df.empty or 'Status' not in whatsapp_df.columns:
             return [], [], []
-        
-        if 'Status' not in whatsapp_df.columns:
-            st.error(f"⚠️ DEBUG: Columna 'Status' no encontrada. Columnas disponibles: {whatsapp_df.columns.tolist()}")
-            return [], [], []
-        
-        st.info(f"📊 DEBUG: Sankey data - Total filas: {len(whatsapp_df)}")
-        st.write(f"📊 Status value_counts: {whatsapp_df['Status'].value_counts().to_dict()}")
         
         source, target, value = [], [], []
         
-        for state, count in whatsapp_df['Status'].value_counts().items():
+        # NIVEL 1: Total Enviados → Status
+        status_counts = whatsapp_df['Status'].value_counts().to_dict()
+        for status, count in sorted(status_counts.items(), key=lambda x: x[1], reverse=True):
             if count > 0:
-                source.append("Enviados")
-                target.append(str(state))
+                source.append('📨 Total Enviados')
+                target.append(f"📊 {status}")
                 value.append(count)
         
-        total_value = sum(value)
-        st.success(f"✅ DEBUG: Sankey completo - Total enviados: {total_value}, Estados: {list(zip(target, value))}")
+        # NIVEL 2: Status → Reply Status
+        if 'Reply Status' in whatsapp_df.columns:
+            for status in whatsapp_df['Status'].unique():
+                status_df = whatsapp_df[whatsapp_df['Status'] == status]
+                reply_counts = status_df['Reply Status'].value_counts().to_dict()
+                for reply, count in sorted(reply_counts.items(), key=lambda x: x[1], reverse=True):
+                    if count > 0:
+                        reply_label = "✅ Sí" if str(reply).lower() == "yes" else "❌ No"
+                        source.append(f"📊 {status}")
+                        target.append(f"💬 {reply_label}")
+                        value.append(count)
         
         return source, target, value
     except Exception as e:
-        st.error(f"❌ Error en flujo WhatsApp: {e}")
-        import traceback
-        st.write(traceback.format_exc())
         return [], [], []
 
 
@@ -817,3 +817,4 @@ def get_whatsapp_failed_details() -> pd.DataFrame:
     
     except Exception as e:
         return pd.DataFrame()
+
